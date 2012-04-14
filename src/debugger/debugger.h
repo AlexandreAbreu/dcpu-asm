@@ -10,6 +10,7 @@ typedef struct instruction_t
 typedef struct debugger_t
 {
   int (* next) (void);
+  int (* peek_next) (void);
   int (* where) (void);
   int (* registers) (void);
   int (* run_until) (const char * const arguments);

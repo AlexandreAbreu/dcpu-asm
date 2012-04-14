@@ -94,6 +94,14 @@ static int handle_command (debugger_t * debugger, const char * command)
       return EOK;
     }
   
+  if (0 == strncmp (command, "peek-next", strlen(command))
+       || 0 == strncmp (command, "pn", strlen(command))
+      && NULL != debugger->peek_next)
+    {
+      debugger->peek_next ();
+      return EOK;
+    }
+  
   if (
       (0 == strncmp (command, "next", strlen(command))
        || 0 == strncmp (command, "n", strlen(command)))

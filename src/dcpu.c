@@ -4,6 +4,11 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <assert.h>
+
+#include "debugger/command_parser.h"
+#include "debugger/debugger.h"
+
 
 typedef uint16_t word;
 
@@ -13,16 +18,19 @@ typedef uint16_t word;
 
 typedef struct dcpu_t_
 {
-  word registers [REGISTER_COUNT];
-  word ram [RAM_SIZE];
   word pc;
   word sp;
   word o;
+  word registers [REGISTER_COUNT];
+  word ram [RAM_SIZE];
   
 } dcpu_t;
 
 
 typedef word (*ValueConsumerFunc) (void);
+typedef void (* NextInstructionFunc) (dcpu_t * cpu
+				      , ValueConsumerFunc next_value);
+
 
 typedef word EncodedValue;
 
@@ -36,91 +44,113 @@ void
 execute_jsr (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_set (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_add (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_sub (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_mul (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_div (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_mod (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_shl (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_shr (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_and (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_bor (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
+
+void
+execute_xor (dcpu_t * cpu
+	     , EncodedValue evalue_a
+	     , EncodedValue evalue_b
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_ife (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_ifn (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_ifg (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 void
 execute_ifb (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value);
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction);
 
 
 /*typedef enum operand_t_
@@ -128,25 +158,19 @@ execute_ifb (dcpu_t * cpu
     
   } operant_t;*/
 
-inline unsigned char extract_opcode (word w)
+unsigned char extract_opcode (word w)
 {
   return w & DCPU_INST_OPCODE_MASK;
 }
-inline unsigned char extract_a (word w)
+unsigned char extract_a (word w)
 {
   return (w & DCPU_INST_A_MASK) >> 4;
 }
-inline unsigned char extract_b (word w)
+unsigned char extract_b (word w)
 {
   return (w & DCPU_INST_B_MASK) >> 10;
 }
   
-void execute (word ram [], word pc)
-{
-  // TODO asserts
-  unsigned char instruction = extract_opcode (ram[pc]);
-}
-
 typedef enum opcode_inst_t_
   {
     OPCODE_BASIC = 0x0,
@@ -172,7 +196,8 @@ typedef enum opcode_inst_t_
 typedef void (* OpcodeExecute) (dcpu_t * cpu
 				, EncodedValue evalue_a
 				, EncodedValue evalue_b
-				, ValueConsumerFunc next_value);
+				, ValueConsumerFunc next_value
+				, NextInstructionFunc next_instruction);
 
 
 typedef struct opcode_t_
@@ -213,6 +238,8 @@ opcodes [] = {
   DEFINE_OPCODE(AND,execute_and)
   ,
   DEFINE_OPCODE(BOR,execute_bor)
+  ,
+  DEFINE_OPCODE(XOR,execute_xor)
   ,
   DEFINE_OPCODE(IFE,execute_ife)
   ,
@@ -389,6 +416,7 @@ assign_to_tagged_value (dcpu_t * cpu, TaggedValue tvalue, word value)
       
     case DCPU_REFERENCE:
       // TODO validate this stuff
+      printf ("Assigning offset %d - value 0x%04X, %d\n", tvalue.value, value, offsetof(dcpu_t,pc));
       *((word *) ((char*) cpu + tvalue.value)) = value;
       break;
       
@@ -433,14 +461,19 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
   
   if (value <= 0x07)
     {
-      tvalue.type = PLAIN_VALUE;
-      tvalue.value = cpu->registers[value];
+      tvalue.type = DCPU_REFERENCE;
+      tvalue.value = (word) (offsetof (dcpu_t, registers)
+			     + value * sizeof(cpu->registers[0]));
+      
+      return tvalue;
     }
   if (value <= 0x0f)
     {
       // TODO add ram validation checks & fallback
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = cpu->registers[value - 0x08];
+      
+      return tvalue;
     }
   if (value <= 0x17)
     {
@@ -448,24 +481,32 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
       word next = next_value ();
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = cpu->registers[value - 0x0f] + next;
+      
+      return tvalue;
     }
   if (value == 0x18)
     {
       // TODO add stack validation checks & fallback
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = cpu->sp++;
+      
+      return tvalue;
     }
   if (value == 0x19)
     {
       // TODO add stack validation checks & fallback
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = cpu->sp;
+      
+      return tvalue;
     }
   if (value == 0x1a)
     {
       // TODO add stack validation checks & fallback
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = cpu->sp--;
+      
+      return tvalue;
     }
   if (value == 0x1b)
     {
@@ -473,6 +514,8 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
       tvalue.type = DCPU_REFERENCE;
       // dangerous ...
       tvalue.value = (word) offsetof (dcpu_t, sp);
+      
+      return tvalue;
     }
   if (value == 0x1c)
     {
@@ -480,6 +523,9 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
       tvalue.type = DCPU_REFERENCE;
       // dangerous ...
       tvalue.value = (word) offsetof (dcpu_t, pc);
+      printf ("Tagged value PC: %d\n", tvalue.value);
+      
+      return tvalue;
     }
   if (value == 0x1d)
     {
@@ -487,6 +533,8 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
       tvalue.type = DCPU_REFERENCE;
       // dangerous ...
       tvalue.value = (word) offsetof (dcpu_t, o);
+      
+      return tvalue;
     }
   if (value == 0x1e)
     {
@@ -494,20 +542,48 @@ decode_value (dcpu_t * cpu, word value, ValueConsumerFunc next_value)
       word next = next_value ();
       tvalue.type = MEMORY_REFERENCE;
       tvalue.value = next;
+      
+      return tvalue;
     }
   if (value == 0x1f)
     {
       word next = next_value ();
       tvalue.type = PLAIN_VALUE;
       tvalue.value = next;
+      
+      return tvalue;
     }
   if (value >= 0x20)
     {
       tvalue.type = PLAIN_VALUE;
       tvalue.value = value - 0x20;
+      
+      return tvalue;
     }
   
   return tvalue;
+}
+
+
+// TODO refactor & group w/ stringify & execute
+void
+next_instruction (dcpu_t * cpu, ValueConsumerFunc next_value)
+{
+  word value = next_value ();
+  
+  unsigned char opcode = extract_opcode (value);
+  
+  if (0 == opcode)
+    {
+      // handled as a special case
+      word code = extract_a (value);
+      decode_value (cpu, extract_b (value), next_value);
+    }
+  else
+    {
+      TaggedValue tvalue_a = decode_value (cpu, extract_a (value), next_value);
+      TaggedValue tvalue_b = decode_value (cpu, extract_b (value), next_value);
+    }
 }
 
 
@@ -515,7 +591,8 @@ void
 execute_jsr (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // TODO add stack validation
   cpu->ram[cpu->sp--] = cpu->pc + 1;
@@ -527,7 +604,8 @@ void
 execute_set (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -541,7 +619,8 @@ void
 execute_add (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -566,7 +645,8 @@ void
 execute_sub (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -591,7 +671,8 @@ void
 execute_mul (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -610,7 +691,8 @@ void
 execute_div (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -636,7 +718,8 @@ void
 execute_mod (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -660,7 +743,8 @@ void
 execute_shl (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -678,7 +762,8 @@ void
 execute_shr (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -696,7 +781,8 @@ void
 execute_and (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -713,7 +799,8 @@ void
 execute_bor (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -730,7 +817,8 @@ void
 execute_xor (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -747,7 +835,8 @@ void
 execute_ife (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -759,6 +848,7 @@ execute_ife (dcpu_t * cpu
   if (value_a != value_b)
     {
       // skip next instruction
+      next_instruction(cpu, next_value);
     }
 }
 
@@ -767,7 +857,8 @@ void
 execute_ifn (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -779,6 +870,7 @@ execute_ifn (dcpu_t * cpu
   if (value_a == value_b)
     {
       // skip next instruction
+      next_instruction(cpu, next_value);
     }
 }
 
@@ -787,7 +879,8 @@ void
 execute_ifg (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -799,6 +892,7 @@ execute_ifg (dcpu_t * cpu
   if (value_a <= value_b)
     {
       // skip next instruction
+      next_instruction(cpu, next_value);
     }
 }
 
@@ -807,7 +901,8 @@ void
 execute_ifb (dcpu_t * cpu
 	     , EncodedValue evalue_a
 	     , EncodedValue evalue_b
-	     , ValueConsumerFunc next_value)
+	     , ValueConsumerFunc next_value
+	     , NextInstructionFunc next_instruction)
 {
   // we want to preserve the eval order, value 'a' then 'b'
   TaggedValue tvalue_a = decode_value (cpu, evalue_a, next_value);
@@ -819,6 +914,7 @@ execute_ifb (dcpu_t * cpu
   if (0 == (value_a & value_b))
     {
       // skip next instruction
+      next_instruction(cpu, next_value);
     }
 }
 
@@ -826,7 +922,8 @@ execute_ifb (dcpu_t * cpu
 void
 execute_instruction (dcpu_t * cpu
 		     , word value
-		     , ValueConsumerFunc next_word)
+		     , ValueConsumerFunc next_word
+		     , NextInstructionFunc next_instruction)
 {
   unsigned char opcode = extract_opcode (value);
   if (0 == opcode)
@@ -837,7 +934,7 @@ execute_instruction (dcpu_t * cpu
       
       if (code == 0x01)
 	{
-	  execute_jsr (cpu, value_a, 0, next_word);
+	  execute_jsr (cpu, value_a, 0, next_word, next_instruction);
 	}
     }
   else
@@ -845,7 +942,8 @@ execute_instruction (dcpu_t * cpu
       opcodes[opcode].execute (cpu
 			       , extract_a (value)
 			       , extract_b (value)
-			       , next_word);
+			       , next_word
+			       , next_instruction);
     }
 }
 
@@ -863,104 +961,13 @@ void run_vm_with (dcpu_t * cpu
     return program [cpu->pc++];
   }
   
-  int should_be_stopped (dcpu_t * cpu
-			 , word instruction
-			 , void * arguments)
-  {
-    int value_from_symbol_name (const char * name)
-    {
-      // static list of symbols
-      if (0 == strncasecmp (name, "IP", strlen(name)))
-	{
-	  return machine->ip;
-	}
-      
-      return -1;
-    }
-    
-    // try to parse
-    environment_t
-      env = {
-      .get_symbol_value = value_from_symbol_name
-    };
-    
-    int result = execute_command ((const char *) arguments, env);
-    
-    if (result < 0)
-      {
-	printf ("Could not properly parse: %s\n", arguments);
-	return 1;
-      }
-    
-    return result;
-  }
-  
-  void on_onestep (dcpu_t * cpu
-		   , word opcode
-		   , pp_opcode_data_t d)
-  {
-    char * stringified = stringify_instruction (opcode, next_value);
-    printf ("0x%08X: %s ", curpc, stringified);
-    free((void *) stringified);
-  }
-  
-  int next ()
-  {
-    word next_word = next_word();
-    execute_instruction (cpu
-			 , next_word ()
-			 , next_word);
-    return EOK;
-  }
-  
-  int peek_next ()
-  {
-    um_run_one_step (machine, data, size, onestep);
-    return EOK;
-  }
-  
-  int run_until (const char * const arguments)
-  {
-    while (0 == should_be_stopped ())
-      {
-	execute_instruction (cpu
-			     , next_word ()
-			     , next_word);
-      }
-  }
-  
-  int where ()
-  {
-    printf ("IP: 0x%08X\n", cpu->pc);
-    return EOK;
-  }
-  
-  int registers ()
-  {
-    size_t i = 0;
-    for (i = 0; i < REGISTER_COUNT; ++i)
-      {
-	assert (i < (sizeof(cpu->registers) / sizeof(cpu->registers[0])));
-
-	printf ("reg[0] = 0x%08X\n", cpu->registers[i]);
-      }
-    return EOK;
-  }
-  
-  debugger_t debugger = {
-    .next = next,
-    .where = where,
-    .registers = registers,
-    .run_until = run_until
-  };
-  
-  return run_debugger (&debugger);
   
   while (1)
     {
       execute_instruction (cpu
 			   , next_word ()
-			   , next_word);
+			   , next_word
+			   , next_instruction);
     }
 }
 
@@ -989,6 +996,122 @@ void decode_dump (word program [], size_t size)
 }
 
 
+void run_with_debugger (dcpu_t * cpu)
+{
+  cpu->pc = 0;
+  cpu->sp = RAM_SIZE - 1;
+  
+  word next_word (void)
+  {
+    return cpu->ram[cpu->pc++];
+  }
+  
+  int should_be_stopped (dcpu_t * cpu
+			 , const char * const arguments)
+  {
+    int value_from_symbol_name (const char * name)
+    {
+      // static list of symbols
+      if (0 == strncasecmp (name, "IP", strlen(name)))
+	{
+	  return cpu->pc;
+	}
+      return -1;
+    }
+    
+    // try to parse
+    environment_t
+      env = {
+      .get_symbol_value = value_from_symbol_name
+    };
+    
+    int result = execute_command ((const char *) arguments, env);
+    if (result < 0)
+      {
+	printf ("Could not properly parse: %s\n", arguments);
+	return 1;
+      }
+    
+    return result;
+  }
+  
+  int peek_next ()
+  {
+    // assume that the only side effect is PC
+    // TODO refactor this
+    word pc = cpu->pc;
+    char * stringified = stringify_instruction (next_word(), next_word);
+    printf ("0x%08X: %s\n", pc, stringified != NULL ? stringified : "??");
+    free((void *) stringified);
+    cpu->pc = pc;
+    
+    return 0;
+  }
+  
+  int next ()
+  {
+    peek_next ();
+    
+    execute_instruction (cpu
+			 , next_word()
+			 , next_word
+			 , next_instruction);
+    
+    return 0;
+  }
+  
+  int run_until (const char * const arguments)
+  {
+    while (0 == should_be_stopped (cpu, arguments))
+      {
+	next ();
+      }
+  }
+  
+  int where ()
+  {
+    printf ("PC: 0x%08X\n", cpu->pc);
+    return 0;
+  }
+  
+  int registers ()
+  {
+    unsigned char i = 0;
+    for (i = 0; i < REGISTER_COUNT; ++i)
+      {
+	assert (i < (sizeof(cpu->registers) / sizeof(cpu->registers[0])));
+	printf ("reg[%d] = 0x%08X\n", i, cpu->registers[i]);
+      }
+    return 0;
+  }
+
+  debugger_t debugger = {
+    .next = next,
+    .where = where,
+    .registers = registers,
+    .run_until = run_until,
+    .peek_next = peek_next
+  };
+  
+  word program [] = {
+    0x7c01, 0x0030, 0x7de1, 0x1000, 0x0020, 0x7803, 0x1000, 0xc00d,
+    0x7dc1, 0x001a, 0xa861, 0x7c01, 0x2000, 0x2161, 0x2000, 0x8463,
+    0x806d, 0x7dc1, 0x000d, 0x9031, 0x7c10, 0x0018, 0x7dc1, 0x001a,
+    0x9037, 0x61c1, 0x7dc1, 0x001a, 0x0000, 0x0000, 0x0000, 0x0000
+  };
+  
+  memcpy (cpu->ram, program, sizeof(program));
+  
+  run_debugger (&debugger);
+  
+  /*run_vm_with (cpu
+	       , program
+	       , sizeof(program) / sizeof(program[0])
+	       , &debugger);*/
+}
+
+
+
 int main (void)
 {
   word program [] = {
@@ -1001,11 +1124,13 @@ int main (void)
   decode_dump (program, sizeof(program) / sizeof(program[0]));
   
   dcpu_t cpu = {0};
-  run_vm_with (&cpu
-	       , program
-	       , sizeof(program) / sizeof(program[0]));
+  run_with_debugger (&cpu);
   
   return 0;
 }
+
+
+
+
 
 
