@@ -973,7 +973,7 @@ void run_vm_with (dcpu_t * cpu
 
 
 // @param size in words
-void decode_dump (word program [], size_t size)
+void disassemble (word program [], size_t size)
 {
   unsigned int pc = 0;
   
@@ -996,7 +996,9 @@ void decode_dump (word program [], size_t size)
 }
 
 
-void run_with_debugger (dcpu_t * cpu)
+void run_with_debugger (word program[]
+			, size_t size
+			, dcpu_t * cpu)
 {
   cpu->pc = 0;
   cpu->sp = RAM_SIZE - 1;
@@ -1093,14 +1095,7 @@ void run_with_debugger (dcpu_t * cpu)
     .peek_next = peek_next
   };
   
-  word program [] = {
-    0x7c01, 0x0030, 0x7de1, 0x1000, 0x0020, 0x7803, 0x1000, 0xc00d,
-    0x7dc1, 0x001a, 0xa861, 0x7c01, 0x2000, 0x2161, 0x2000, 0x8463,
-    0x806d, 0x7dc1, 0x000d, 0x9031, 0x7c10, 0x0018, 0x7dc1, 0x001a,
-    0x9037, 0x61c1, 0x7dc1, 0x001a, 0x0000, 0x0000, 0x0000, 0x0000
-  };
-  
-  memcpy (cpu->ram, program, sizeof(program));
+  memcpy (cpu->ram, program, size);
   
   run_debugger (&debugger);
   
@@ -1121,16 +1116,12 @@ int main (void)
     0x9037, 0x61c1, 0x7dc1, 0x001a, 0x0000, 0x0000, 0x0000, 0x0000
   };
   
-  decode_dump (program, sizeof(program) / sizeof(program[0]));
+  disassemble (program, sizeof(program) / sizeof(program[0]));
   
   dcpu_t cpu = {0};
-  run_with_debugger (&cpu);
+  run_with_debugger (program, sizeof(program) / sizeof(program[0]), &cpu);
   
   return 0;
 }
-
-
-
-
 
 
